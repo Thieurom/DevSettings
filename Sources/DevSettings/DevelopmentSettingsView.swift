@@ -13,15 +13,19 @@ public struct DevelopmentSettingsView: View {
 
     public var body: some View {
         List {
-            Section {
-                ForEach(viewModel.settingItems, id: \.name) { setting in
-                    HStack {
-                        Text("\(setting.name)")
-                        Spacer()
-                        Text("\(setting.value)")
-                            .foregroundStyle(.secondary)
+            IndexedForEach(viewModel.settingGroups) { _, settingGroup in
+                Section  {
+                    IndexedForEach(settingGroup.settings) { _, setting in
+                        settingView(setting)
                     }
-                    .lineLimit(1)
+                } header: {
+                    if let title = settingGroup.title {
+                        Text(title)
+                    }
+                } footer: {
+                    if let description = settingGroup.description {
+                        Text(description)
+                    }
                 }
             }
         }
@@ -30,6 +34,34 @@ public struct DevelopmentSettingsView: View {
 
     public init() {
         _viewModel = .init(wrappedValue: DevelopmentSettingsViewModel())
+    }
+}
+
+extension DevelopmentSettingsView {
+
+    @ViewBuilder private func settingView(_ setting: Setting) -> some View {
+        switch setting.value {
+        case let .readOnly(value):
+            HStack {
+                Text("\(setting.name)")
+                Spacer()
+                Text("\(value)")
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+        case let .link(url):
+            Button(action: {
+                UIApplication.shared.open(url)
+            }, label: {
+                HStack {
+                    Text("\(setting.name)")
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+            })
+            .disabled(!UIApplication.shared.canOpenURL(url))
+        }
     }
 }
 
