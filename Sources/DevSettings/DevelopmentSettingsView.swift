@@ -42,13 +42,23 @@ extension DevelopmentSettingsView {
     @ViewBuilder private func settingView(_ setting: Setting) -> some View {
         switch setting.value {
         case let .readOnly(value):
-            HStack {
-                Text("\(setting.name)")
-                Spacer()
-                Text("\(value)")
-                    .foregroundStyle(.secondary)
+            // TODO: Check the rendered width and display accordingly
+            if value.count <= 20 {
+                HStack {
+                    Text("\(setting.name)")
+                    Spacer()
+                    Text("\(value)")
+                        .foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
+            } else {
+                VStack(alignment: .leading) {
+                    Text("\(setting.name)")
+                    Text("\(value)")
+                        .foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
             }
-            .lineLimit(1)
         case let .link(url):
             Button(action: {
                 UIApplication.shared.open(url)
