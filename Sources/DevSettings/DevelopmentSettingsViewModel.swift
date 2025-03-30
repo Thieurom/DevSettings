@@ -5,34 +5,45 @@
 //  Created by Doan Thieu on 24/3/25.
 //
 
-import Combine
-import Foundation
-
-struct Setting {
-
-    let name: String
-    let value: String
-}
+import UIKit
 
 class DevelopmentSettingsViewModel: ObservableObject {
 
-    @Published private(set) var settingItems: [Setting]
+    @Published private(set) var settingGroups: [SettingGroup]
 
     init() {
         let bundle = Bundle.main
-        settingItems = [
+        let appInfoSettings = [
             ("Bundle Identifier", bundle.getInfo("CFBundleIdentifier")),
             ("Bundle Short Version", bundle.getInfo("CFBundleShortVersionString")),
             ("Bundle Version", bundle.getInfo("CFBundleVersion"))
         ].compactMap { item in
-            item.1.flatMap { Setting(name: item.0, value: $0) }
+            item.1.map {
+                Setting(name: item.0, value: .readOnly($0))
+            }
         }
+
+        let linkSettings = [
+            UIApplication.openSettingsURLString
+        ].compactMap {
+            URL(string: $0)
+        }.map {
+            Setting(name: "Open Settings", value: .link($0))
+        }
+
+        settingGroups = [
+            SettingGroup(settings: appInfoSettings),
+            SettingGroup(
+                description: "This will open the iOS Settings app.",
+                settings: linkSettings
+            )
+        ]
     }
 }
 
 extension Bundle {
 
-    func getInfo(_ key: String) -> String? {
+    fileprivate func getInfo(_ key: String) -> String? {
         infoDictionary?[key] as? String
     }
 }
