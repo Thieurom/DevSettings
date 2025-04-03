@@ -18,9 +18,37 @@ class DevelopmentSettingsViewModel: ObservableObject {
     lazy private var notificationManager = UNUserNotificationCenter.current()
 
     @Published private(set) var settingGroups = [SettingGroup]()
+    @Published private(set) var osSettingsUrl: URL?
 
     init() {
         loadSettings()
+    }
+
+    func toggleSetting(_ setting: Setting) {
+        guard let groupIndex = settingGroups.firstIndex(
+            where: { group in
+                group.settings.contains(where: { $0.id == setting.id })
+            }
+        ) else {
+            return
+        }
+
+        guard let settingIndex = settingGroups[groupIndex].settings.firstIndex(
+            where: { $0.id == setting.id }) else {
+            return
+        }
+
+        guard case .toggle(let isEnabled) = setting.value else {
+            return
+        }
+
+        var updatedSettings = settingGroups[groupIndex].settings
+        updatedSettings[settingIndex] = Setting(
+            type: setting.type,
+            value: .toggle(!isEnabled)
+        )
+
+        settingGroups[groupIndex].settings = updatedSettings
     }
 }
 
@@ -28,34 +56,46 @@ extension DevelopmentSettingsViewModel {
 
     private func loadSettings() {
         Publishers.Zip3(
-            Just(createAppInfoSettings()).eraseToAnyPublisher(),
-            createPrivacySettings(),
-            Just(createLinkSettings()).eraseToAnyPublisher()
+            Just(loadAppInfoSettings()).eraseToAnyPublisher(),
+            loadPrivacySettings(),
+            Just(loadUtilitiesSettings()).eraseToAnyPublisher()
         )
         .map {
             [
-                SettingGroup(title: "App info", settings: $0),
-                SettingGroup(title: "Privacy", settings: $1),
                 SettingGroup(
-                    description: "This will open the iOS Settings app.",
+                    id: "app_info",
+                    title: "App info",
+                    settings: $0
+                ),
+                SettingGroup(
+                    id: "privacy",
+                    title: "Privacy",
+                    settings: $1
+                ),
+                SettingGroup(
+                    id: "utilities",
+                    title: "Utilities",
+                    description: "Enable network debugging and logging. Shake the device to view the logs.",
                     settings: $2
                 )
             ]
         }
         .assign(to: &$settingGroups)
+
+        osSettingsUrl = URL(string: UIApplication.openSettingsURLString)
     }
 }
 
 extension DevelopmentSettingsViewModel {
 
-    private func createAppInfoSettings() -> [Setting] {
+    private func loadAppInfoSettings() -> [Setting] {
         [
-            ("Bundle Identifier", mainBundle.getInfo("CFBundleIdentifier")),
-            ("Bundle Short Version", mainBundle.getInfo("CFBundleShortVersionString")),
-            ("Bundle Version", mainBundle.getInfo("CFBundleVersion"))
+            (SettingType.bundleIdentifier, mainBundle.getInfo("CFBundleIdentifier")),
+            (SettingType.bundleShortVersion, mainBundle.getInfo("CFBundleShortVersionString")),
+            (SettingType.bundleVersion, mainBundle.getInfo("CFBundleVersion"))
         ].compactMap { item in
             item.1.map {
-                Setting(name: item.0, value: .readOnly($0))
+                Setting(type: item.0, value: .readOnly($0))
             }
         }
     }
@@ -63,7 +103,7 @@ extension DevelopmentSettingsViewModel {
 
 extension DevelopmentSettingsViewModel {
 
-    private func createPrivacySettings() -> AnyPublisher<[Setting], Never> {
+    private func loadPrivacySettings() -> AnyPublisher<[Setting], Never> {
         Publishers.Zip3(
             Just(getAppTrackingStatusDescription()).eraseToAnyPublisher(),
             Just(getLocationStatusDescription()).eraseToAnyPublisher(),
@@ -71,9 +111,9 @@ extension DevelopmentSettingsViewModel {
         )
         .map {
             [
-                Setting(name: "App Tracking", value: .readOnly($0)),
-                Setting(name: "Location Services", value: .readOnly($1)),
-                Setting(name: "Notifications", value: .readOnly($2))
+                Setting(type: .appTracking, value: .readOnly($0)),
+                Setting(type: .locationServices, value: .readOnly($1)),
+                Setting(type: .notifications, value: .readOnly($2))
             ]
         }
         .eraseToAnyPublisher()
@@ -132,17 +172,15 @@ extension DevelopmentSettingsViewModel {
         default:
             "Denied"
         }
-    }}
+    }
+}
 
 extension DevelopmentSettingsViewModel {
 
-    private func createLinkSettings() -> [Setting] {
-        [UIApplication.openSettingsURLString]
-            .compactMap {
-                URL(string: $0)
-            }.map {
-                Setting(name: "Open Settings", value: .link($0))
-            }
+    private func loadUtilitiesSettings() -> [Setting] {
+        [
+            Setting(type: .networkDebugging, value: .toggle(true))
+        ]
     }
 }
 

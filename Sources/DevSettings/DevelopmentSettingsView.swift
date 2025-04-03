@@ -13,19 +13,27 @@ public struct DevelopmentSettingsView: View {
 
     public var body: some View {
         List {
-            IndexedForEach(viewModel.settingGroups) { _, settingGroup in
-                Section  {
-                    IndexedForEach(settingGroup.settings) { _, setting in
+            ForEach(viewModel.settingGroups) { settingGroup in
+                Section {
+                    ForEach(settingGroup.settings) { setting in
                         settingView(setting)
                     }
                 } header: {
-                    if let title = settingGroup.title {
-                        Text(title)
+                    if let name = settingGroup.name {
+                        Text(name)
                     }
                 } footer: {
                     if let description = settingGroup.description {
                         Text(description)
                     }
+                }
+            }
+
+            if let url = viewModel.osSettingsUrl {
+                Section {
+                    openSettingsButton(url)
+                } footer: {
+                    Text("This will open the iOS Settings app.")
                 }
             }
         }
@@ -45,7 +53,7 @@ extension DevelopmentSettingsView {
             // TODO: Check the rendered width and display accordingly
             if value.count <= 20 {
                 HStack {
-                    Text("\(setting.name)")
+                    Text("\(setting.type.name)")
                     Spacer()
                     Text("\(value)")
                         .foregroundStyle(.secondary)
@@ -53,25 +61,35 @@ extension DevelopmentSettingsView {
                 .lineLimit(1)
             } else {
                 VStack(alignment: .leading) {
-                    Text("\(setting.name)")
+                    Text("\(setting.type.name)")
                     Text("\(value)")
                         .foregroundStyle(.secondary)
                 }
                 .lineLimit(1)
             }
-        case let .link(url):
-            Button(action: {
-                UIApplication.shared.open(url)
-            }, label: {
-                HStack {
-                    Text("\(setting.name)")
-                        .lineLimit(1)
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                }
-            })
-            .disabled(!UIApplication.shared.canOpenURL(url))
+        case let .toggle(isEnabled):
+            Toggle(
+                setting.type.name,
+                isOn: .init(
+                    get: { isEnabled },
+                    set: { _ in viewModel.toggleSetting(setting) }
+                )
+            )
         }
+    }
+
+    func openSettingsButton(_ settingsUrl: URL) -> some View {
+        Button(action: {
+            UIApplication.shared.open(settingsUrl)
+        }, label: {
+            HStack {
+                Text("Open Settings")
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+            }
+        })
+        .disabled(!UIApplication.shared.canOpenURL(settingsUrl))
     }
 }
 
