@@ -6,11 +6,11 @@
 //
 
 import AppTrackingTransparency
-import Combine
 import CoreLocation
 import UIKit
-import UserNotifications
+@preconcurrency import UserNotifications
 
+@MainActor
 class DevelopmentSettingsViewModel: ObservableObject {
 
     private let mainBundle = Bundle.main
@@ -22,7 +22,9 @@ class DevelopmentSettingsViewModel: ObservableObject {
     @Published private(set) var osSettingsUrl: URL?
 
     init() {
-        loadSettings()
+        Task {
+            await loadSettings()
+        }
     }
 
     func toggleSetting(_ setting: Setting) {
@@ -58,45 +60,37 @@ class DevelopmentSettingsViewModel: ObservableObject {
             NetworkLoggingConfigurator.setNetworkLoggingEnabled(!isEnabled)
         }
     }
-}
 
-extension DevelopmentSettingsViewModel {
+    private func loadSettings() async {
+        async let appInfoSettings = loadAppInfoSettings()
+        async let privacySettings = loadPrivacySettings()
+        async let utilitiesSettings = loadUtilitiesSettings()
 
-    private func loadSettings() {
-        Publishers.Zip3(
-            Just(loadAppInfoSettings()).eraseToAnyPublisher(),
-            loadPrivacySettings(),
-            Just(loadUtilitiesSettings()).eraseToAnyPublisher()
-        )
-        .map {
-            [
-                SettingGroup(
-                    id: "app_info",
-                    title: "App info",
-                    settings: $0
-                ),
-                SettingGroup(
-                    id: "privacy",
-                    title: "Privacy",
-                    settings: $1
-                ),
-                SettingGroup(
-                    id: "utilities",
-                    title: "Utilities",
-                    description: "Enable network debugging and logging. Shake the device to view the logs.",
-                    settings: $2
-                )
-            ]
-        }
-        .assign(to: &$settingGroups)
+        let (appInfo, privacy, utilities) = await (appInfoSettings, privacySettings, utilitiesSettings)
+
+        settingGroups = [
+            SettingGroup(
+                id: "app_info",
+                title: "App info",
+                settings: appInfo
+            ),
+            SettingGroup(
+                id: "privacy",
+                title: "Privacy",
+                settings: privacy
+            ),
+            SettingGroup(
+                id: "utilities",
+                title: "Utilities",
+                description: "Enable network debugging and logging. Shake the device to view the logs.",
+                settings: utilities
+            )
+        ]
 
         osSettingsUrl = URL(string: UIApplication.openSettingsURLString)
     }
-}
 
-extension DevelopmentSettingsViewModel {
-
-    private func loadAppInfoSettings() -> [Setting] {
+    private func loadAppInfoSettings() async -> [Setting] {
         [
             (SettingType.bundleIdentifier, mainBundle.getInfo("CFBundleIdentifier")),
             (SettingType.bundleShortVersion, mainBundle.getInfo("CFBundleShortVersionString")),
@@ -107,24 +101,15 @@ extension DevelopmentSettingsViewModel {
             }
         }
     }
-}
 
-extension DevelopmentSettingsViewModel {
+    private func loadPrivacySettings() async -> [Setting] {
+        let notificationStatus = await getNotificationStatusDescription()
 
-    private func loadPrivacySettings() -> AnyPublisher<[Setting], Never> {
-        Publishers.Zip3(
-            Just(getAppTrackingStatusDescription()).eraseToAnyPublisher(),
-            Just(getLocationStatusDescription()).eraseToAnyPublisher(),
-            getNotificationStatusDescription().receive(on: DispatchQueue.main)
-        )
-        .map {
-            [
-                Setting(type: .appTracking, value: .readOnly($0)),
-                Setting(type: .locationServices, value: .readOnly($1)),
-                Setting(type: .notifications, value: .readOnly($2))
-            ]
-        }
-        .eraseToAnyPublisher()
+        return [
+            Setting(type: .appTracking, value: .readOnly(getAppTrackingStatusDescription())),
+            Setting(type: .locationServices, value: .readOnly(getLocationStatusDescription())),
+            Setting(type: .notifications, value: .readOnly(notificationStatus))
+        ]
     }
 
     private func getLocationStatusDescription() -> String {
@@ -142,33 +127,22 @@ extension DevelopmentSettingsViewModel {
         }
     }
 
-    private func getNotificationStatusDescription() -> AnyPublisher<String, Never> {
-        Future<String, Never> { [weak self] promise in
-            guard let self else {
-                promise(.success("Unknown"))
-                return
-            }
-
-            return notificationManager
-                .getNotificationSettings { settings in
-                    let statusDescription = switch settings.authorizationStatus {
-                    case .authorized:
-                        "Enabled"
-                    case .denied:
-                        "Disabled"
-                    case .notDetermined:
-                        "Not Determined"
-                    case .provisional:
-                        "Provisional"
-                    case .ephemeral:
-                        "Ephemeral"
-                    @unknown default:
-                        "Unknown"
-                    }
-                    promise(.success(statusDescription))
-                }
+    private func getNotificationStatusDescription() async -> String {
+        let settings = await notificationManager.notificationSettings()
+        return switch settings.authorizationStatus {
+        case .authorized:
+            "Enabled"
+        case .denied:
+            "Disabled"
+        case .notDetermined:
+            "Not Determined"
+        case .provisional:
+            "Provisional"
+        case .ephemeral:
+            "Ephemeral"
+        @unknown default:
+            "Unknown"
         }
-        .eraseToAnyPublisher()
     }
 
     private func getAppTrackingStatusDescription() -> String {
@@ -181,11 +155,8 @@ extension DevelopmentSettingsViewModel {
             "Denied"
         }
     }
-}
 
-extension DevelopmentSettingsViewModel {
-
-    private func loadUtilitiesSettings() -> [Setting] {
+    private func loadUtilitiesSettings() async -> [Setting] {
         let isNetworkLoggingEnabled = SettingType.networkDebugging
             .userDefaultsKey
             .map { userDefaults.bool(forKey: $0) } ?? false
