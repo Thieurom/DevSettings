@@ -19,6 +19,7 @@ enum SettingType {
 
     // Utilities
     case networkDebugging
+    case gestures
 
     var name: String {
         switch self {
@@ -36,6 +37,8 @@ enum SettingType {
             return "App Tracking"
         case .networkDebugging:
             return "Network Debugging"
+        case .gestures:
+            return "Taps and Gestures"
         }
     }
 }

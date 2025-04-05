@@ -1,6 +1,15 @@
 {
-  "originHash" : "d491b04132dc0f697d59389efdc46d70bd81e68b7b955fff89ecea8bd6037f53",
+  "originHash" : "6adb63d238c097decfde0fbe1bdddfe904b3cfa5c78f44db1d458d1d9a63dbf6",
   "pins" : [
+    {
+      "identity" : "showtime",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Thieurom/ShowTime",
+      "state" : {
+        "branch" : "feature/dynamic-swizzling-control",
+        "revision" : "73c5851b0a31327857db73b04bba7c35c547774f"
+      }
+    },
     {
       "identity" : "wormholy",
       "kind" : "remoteSourceControl",

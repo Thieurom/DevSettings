@@ -14,11 +14,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Thieurom/Wormholy", branch: "fix/concurrency-safe-shake-detection"),
+        .package(url: "https://github.com/Thieurom/ShowTime", branch: "feature/dynamic-swizzling-control")
     ],
     targets: [
         .target(
             name: "DevSettings",
-            dependencies: ["Wormholy"]
+            dependencies: ["Wormholy", "ShowTime"]
         ),
         .testTarget(
             name: "DevSettingsTests",
