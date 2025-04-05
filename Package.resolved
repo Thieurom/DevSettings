@@ -1,0 +1,15 @@
+{
+  "originHash" : "d491b04132dc0f697d59389efdc46d70bd81e68b7b955fff89ecea8bd6037f53",
+  "pins" : [
+    {
+      "identity" : "wormholy",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Thieurom/Wormholy",
+      "state" : {
+        "branch" : "fix/concurrency-safe-shake-detection",
+        "revision" : "2c20ea2f29d4a0ce96a92df89f6ad0480c9a59c6"
+      }
+    }
+  ],
+  "version" : 3
+}

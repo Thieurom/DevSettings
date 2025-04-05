@@ -13,9 +13,10 @@ import UserNotifications
 
 class DevelopmentSettingsViewModel: ObservableObject {
 
-    lazy private var mainBundle = Bundle.main
-    lazy private var locationManager = CLLocationManager()
-    lazy private var notificationManager = UNUserNotificationCenter.current()
+    private let mainBundle = Bundle.main
+    private let locationManager = CLLocationManager()
+    private let notificationManager = UNUserNotificationCenter.current()
+    private let userDefaults = UserDefaults.standard
 
     @Published private(set) var settingGroups = [SettingGroup]()
     @Published private(set) var osSettingsUrl: URL?
@@ -25,6 +26,10 @@ class DevelopmentSettingsViewModel: ObservableObject {
     }
 
     func toggleSetting(_ setting: Setting) {
+        guard case .toggle(let isEnabled) = setting.value else {
+            return
+        }
+
         guard let groupIndex = settingGroups.firstIndex(
             where: { group in
                 group.settings.contains(where: { $0.id == setting.id })
@@ -38,10 +43,6 @@ class DevelopmentSettingsViewModel: ObservableObject {
             return
         }
 
-        guard case .toggle(let isEnabled) = setting.value else {
-            return
-        }
-
         var updatedSettings = settingGroups[groupIndex].settings
         updatedSettings[settingIndex] = Setting(
             type: setting.type,
@@ -49,6 +50,13 @@ class DevelopmentSettingsViewModel: ObservableObject {
         )
 
         settingGroups[groupIndex].settings = updatedSettings
+
+        if let userDefaultsKey = setting.type.userDefaultsKey {
+            userDefaults.set(!isEnabled, forKey: userDefaultsKey)
+        }
+        if setting.type == .networkDebugging {
+            NetworkLoggingConfigurator.setNetworkLoggingEnabled(!isEnabled)
+        }
     }
 }
 
@@ -178,8 +186,12 @@ extension DevelopmentSettingsViewModel {
 extension DevelopmentSettingsViewModel {
 
     private func loadUtilitiesSettings() -> [Setting] {
-        [
-            Setting(type: .networkDebugging, value: .toggle(true))
+        let isNetworkLoggingEnabled = SettingType.networkDebugging
+            .userDefaultsKey
+            .map { userDefaults.bool(forKey: $0) } ?? false
+
+        return [
+            Setting(type: .networkDebugging, value: .toggle(isNetworkLoggingEnabled))
         ]
     }
 }

@@ -5,20 +5,20 @@
 //  Created by Doan Thieu on 31/3/25.
 //
 
-enum SettingType: String {
+enum SettingType {
 
     // App Info
-    case bundleIdentifier = "bundle_identifier"
-    case bundleVersion = "bundle_version"
-    case bundleShortVersion = "bundle_short_version"
+    case bundleIdentifier
+    case bundleVersion
+    case bundleShortVersion
 
     // Privacy
-    case locationServices = "location_services"
-    case notifications = "notifications"
-    case appTracking = "app_tracking"
+    case locationServices
+    case notifications
+    case appTracking
 
     // Utilities
-    case networkDebugging = "network_debugging"
+    case networkDebugging
 
     var name: String {
         switch self {

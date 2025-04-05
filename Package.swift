@@ -12,9 +12,13 @@ let package = Package(
             targets: ["DevSettings"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/Thieurom/Wormholy", branch: "fix/concurrency-safe-shake-detection"),
+    ],
     targets: [
         .target(
-            name: "DevSettings"
+            name: "DevSettings",
+            dependencies: ["Wormholy"]
         ),
         .testTarget(
             name: "DevSettingsTests",
