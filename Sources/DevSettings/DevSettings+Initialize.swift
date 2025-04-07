@@ -9,9 +9,16 @@ import Foundation
 
 public func initialize() {
     let userDefaults = UserDefaults.standard
+
     let isNetworkDebuggingEnabled = SettingType.networkDebugging
         .userDefaultsKey
         .map { userDefaults.bool(forKey: $0) } ?? false
 
     NetworkLoggingConfigurator.setNetworkLoggingEnabled(isNetworkDebuggingEnabled)
+
+    let isGesturesEnabled = SettingType.gestures
+        .userDefaultsKey
+        .map { userDefaults.bool(forKey: $0) } ?? false
+
+    GesturesConfigurator.setGesturesEnabled(isGesturesEnabled)
 }

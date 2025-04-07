@@ -10,7 +10,9 @@ extension SettingType {
     var userDefaultsKey: String? {
         switch self {
         case .networkDebugging:
-            "ias_network_debugging"
+            "devsettings_network_debugging"
+        case .gestures:
+            "devsettings_gestures"
         default:
             nil
         }

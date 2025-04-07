@@ -13,10 +13,10 @@ import UIKit
 @MainActor
 class DevelopmentSettingsViewModel: ObservableObject {
 
+    private let userDefaults = UserDefaults.standard
     private let mainBundle = Bundle.main
     private let locationManager = CLLocationManager()
     private let notificationManager = UNUserNotificationCenter.current()
-    private let userDefaults = UserDefaults.standard
 
     @Published private(set) var settingGroups = [SettingGroup]()
     @Published private(set) var osSettingsUrl: URL?
@@ -56,17 +56,27 @@ class DevelopmentSettingsViewModel: ObservableObject {
         if let userDefaultsKey = setting.type.userDefaultsKey {
             userDefaults.set(!isEnabled, forKey: userDefaultsKey)
         }
-        if setting.type == .networkDebugging {
+
+        switch setting.type {
+        case .networkDebugging:
             NetworkLoggingConfigurator.setNetworkLoggingEnabled(!isEnabled)
+        case .gestures:
+            GesturesConfigurator.setGesturesEnabled(!isEnabled)
+        default:
+            break
         }
     }
+}
+
+extension DevelopmentSettingsViewModel {
 
     private func loadSettings() async {
         async let appInfoSettings = loadAppInfoSettings()
         async let privacySettings = loadPrivacySettings()
-        async let utilitiesSettings = loadUtilitiesSettings()
+        async let networkLoggingSettings = loadNetworkLoggingSettings()
+        async let gesturesSettings = loadGesturesSettings()
 
-        let (appInfo, privacy, utilities) = await (appInfoSettings, privacySettings, utilitiesSettings)
+        let (appInfo, privacy, networkLogging, gestures) = await (appInfoSettings, privacySettings, networkLoggingSettings, gesturesSettings)
 
         settingGroups = [
             SettingGroup(
@@ -80,10 +90,14 @@ class DevelopmentSettingsViewModel: ObservableObject {
                 settings: privacy
             ),
             SettingGroup(
-                id: "utilities",
-                title: "Utilities",
+                id: "network_logging",
                 description: "Enable network debugging and logging. Shake the device to view the logs.",
-                settings: utilities
+                settings: networkLogging
+            ),
+            SettingGroup(
+                id: "taps_gestures",
+                description: "Show taps and gestures.",
+                settings: gestures
             )
         ]
 
@@ -156,13 +170,23 @@ class DevelopmentSettingsViewModel: ObservableObject {
         }
     }
 
-    private func loadUtilitiesSettings() async -> [Setting] {
+    private func loadNetworkLoggingSettings() async -> [Setting] {
         let isNetworkLoggingEnabled = SettingType.networkDebugging
             .userDefaultsKey
             .map { userDefaults.bool(forKey: $0) } ?? false
 
         return [
             Setting(type: .networkDebugging, value: .toggle(isNetworkLoggingEnabled))
+        ]
+    }
+
+    private func loadGesturesSettings() async -> [Setting] {
+        let isGesturesEnabled = SettingType.gestures
+            .userDefaultsKey
+            .map { userDefaults.bool(forKey: $0) } ?? false
+
+        return [
+            Setting(type: .gestures, value: .toggle(isGesturesEnabled))
         ]
     }
 }
