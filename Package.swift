@@ -13,7 +13,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/Thieurom/Wormholy", branch: "fix/concurrency-safe-shake-detection"),
+        .package(url: "https://github.com/pmusolino/Wormholy", exact: "2.1.0"),
         .package(url: "https://github.com/Thieurom/ShowTime", branch: "feature/dynamic-swizzling-control")
     ],
     targets: [

@@ -50,22 +50,12 @@ extension DevelopmentSettingsView {
     @ViewBuilder private func settingView(_ setting: Setting) -> some View {
         switch setting.value {
         case let .readOnly(value):
-            // TODO: Check the rendered width and display accordingly
-            if value.count <= 20 {
-                HStack {
-                    Text("\(setting.type.name)")
-                    Spacer()
-                    Text("\(value)")
-                        .foregroundStyle(.secondary)
-                }
-                .lineLimit(1)
-            } else {
-                VStack(alignment: .leading) {
-                    Text("\(setting.type.name)")
-                    Text("\(value)")
-                        .foregroundStyle(.secondary)
-                }
-                .lineLimit(1)
+            HStack {
+                Text("\(setting.type.name)")
+                Spacer()
+                Text("\(value)")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
             }
         case let .toggle(isEnabled):
             Toggle(

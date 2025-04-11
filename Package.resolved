@@ -1,5 +1,5 @@
 {
-  "originHash" : "6adb63d238c097decfde0fbe1bdddfe904b3cfa5c78f44db1d458d1d9a63dbf6",
+  "originHash" : "4d60fe81fc4cdc5d979e355bf6913d7089b868b263a3a5f5b3334cde974db3e4",
   "pins" : [
     {
       "identity" : "showtime",
@@ -13,10 +13,10 @@
     {
       "identity" : "wormholy",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Thieurom/Wormholy",
+      "location" : "https://github.com/pmusolino/Wormholy",
       "state" : {
-        "branch" : "fix/concurrency-safe-shake-detection",
-        "revision" : "2c20ea2f29d4a0ce96a92df89f6ad0480c9a59c6"
+        "revision" : "ec88235e969315ed86ec873f314188558b564b63",
+        "version" : "2.1.0"
       }
     }
   ],
