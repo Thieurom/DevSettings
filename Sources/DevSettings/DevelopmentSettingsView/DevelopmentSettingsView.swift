@@ -9,6 +9,7 @@ import SwiftUI
 
 public struct DevelopmentSettingsView: View {
 
+    @Environment(\.scenePhase) var scenePhase
     @StateObject private var viewModel: DevelopmentSettingsViewModel
 
     public var body: some View {
@@ -37,7 +38,11 @@ public struct DevelopmentSettingsView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .onChange(of: scenePhase) {
+            if $0 == .active {
+                viewModel.reloadSettings()
+            }
+        }
     }
 
     public init() {

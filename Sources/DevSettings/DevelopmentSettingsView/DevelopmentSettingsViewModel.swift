@@ -6,11 +6,10 @@
 //
 
 import AppTrackingTransparency
+import Combine
 import CoreLocation
 import UIKit
-@preconcurrency import UserNotifications
 
-@MainActor
 class DevelopmentSettingsViewModel: ObservableObject {
 
     private let userDefaults = UserDefaults.standard
@@ -18,13 +17,13 @@ class DevelopmentSettingsViewModel: ObservableObject {
     private let locationManager = CLLocationManager()
     private let notificationManager = UNUserNotificationCenter.current()
 
+    private let reloadSettingsPublisher = CurrentValueSubject<Void, Never>(())
+
     @Published private(set) var settingGroups = [SettingGroup]()
     @Published private(set) var osSettingsUrl: URL?
 
     init() {
-        Task {
-            await loadSettings()
-        }
+        loadSettings()
     }
 
     func toggleSetting(_ setting: Setting) {
@@ -66,45 +65,52 @@ class DevelopmentSettingsViewModel: ObservableObject {
             break
         }
     }
+
+    func reloadSettings() {
+        reloadSettingsPublisher.send(())
+    }
 }
 
 extension DevelopmentSettingsViewModel {
 
-    private func loadSettings() async {
-        async let appInfoSettings = loadAppInfoSettings()
-        async let privacySettings = loadPrivacySettings()
-        async let networkLoggingSettings = loadNetworkLoggingSettings()
-        async let gesturesSettings = loadGesturesSettings()
-
-        let (appInfo, privacy, networkLogging, gestures) = await (appInfoSettings, privacySettings, networkLoggingSettings, gesturesSettings)
-
-        settingGroups = [
-            SettingGroup(
-                id: "app_info",
-                title: "App info",
-                settings: appInfo
-            ),
-            SettingGroup(
-                id: "privacy",
-                title: "Privacy",
-                settings: privacy
-            ),
-            SettingGroup(
-                id: "network_logging",
-                description: "Enable network debugging and logging. Shake the device to view the logs.",
-                settings: networkLogging
-            ),
-            SettingGroup(
-                id: "taps_gestures",
-                description: "Show taps and gestures.",
-                settings: gestures
-            )
-        ]
+    private func loadSettings() {
+        Publishers.CombineLatest4(
+            Just(loadAppInfoSettings()).eraseToAnyPublisher(),
+            loadPrivacySettings(),
+            Just(loadNetworkLoggingSettings()).eraseToAnyPublisher(),
+            Just(loadGesturesSettings()).eraseToAnyPublisher()
+        )
+        .map { appInfo, privacy, networkLogging, gestures in
+            [
+                SettingGroup(
+                    id: "app_info",
+                    title: "App info",
+                    settings: appInfo
+                ),
+                SettingGroup(
+                    id: "privacy",
+                    title: "Privacy",
+                    settings: privacy
+                ),
+                SettingGroup(
+                    id: "network_logging",
+                    description: "Enable network debugging and logging. Shake the device to view the logs.",
+                    settings: networkLogging
+                ),
+                SettingGroup(
+                    id: "taps_gestures",
+                    description: "Show taps and gestures.",
+                    settings: gestures
+                )
+            ]
+        }
+        .receive(on: DispatchQueue.main)
+        .assign(to: &$settingGroups)
 
         osSettingsUrl = URL(string: UIApplication.openSettingsURLString)
     }
 
-    private func loadAppInfoSettings() async -> [Setting] {
+    private func loadAppInfoSettings() -> [Setting] {
         [
             (SettingType.bundleIdentifier, mainBundle.getInfo("CFBundleIdentifier")),
             (SettingType.bundleShortVersion, mainBundle.getInfo("CFBundleShortVersionString")),
@@ -116,61 +122,94 @@ extension DevelopmentSettingsViewModel {
         }
     }
 
-    private func loadPrivacySettings() async -> [Setting] {
-        let notificationStatus = await getNotificationStatusDescription()
-
-        return [
-            Setting(type: .appTracking, value: .readOnly(getAppTrackingStatusDescription())),
-            Setting(type: .locationServices, value: .readOnly(getLocationStatusDescription())),
-            Setting(type: .notifications, value: .readOnly(notificationStatus))
-        ]
-    }
-
-    private func getLocationStatusDescription() -> String {
-        switch locationManager.authorizationStatus {
-        case .authorizedAlways:
-            "Always"
-        case .authorizedWhenInUse:
-            "While Using the App"
-        case .denied, .restricted:
-            "Never"
-        case .notDetermined:
-            "Ask Next Time Or When I Share"
-        default:
-            "Unknown location services status."
+    private func loadPrivacySettings() -> AnyPublisher<[Setting], Never> {
+        Publishers.CombineLatest3(
+            getAppTrackingStatus(),
+            getLocationStatus(),
+            getNotificationStatus()
+        )
+        .map { appTracking, locationServices, notifications in
+            [
+                Setting(type: .appTracking, value: .readOnly(appTracking)),
+                Setting(type: .locationServices, value: .readOnly(locationServices)),
+                Setting(type: .notifications, value: .readOnly(notifications))
+            ]
         }
+        .eraseToAnyPublisher()
     }
 
-    private func getNotificationStatusDescription() async -> String {
-        let settings = await notificationManager.notificationSettings()
-        return switch settings.authorizationStatus {
-        case .authorized:
-            "Enabled"
-        case .denied:
-            "Disabled"
-        case .notDetermined:
-            "Not Determined"
-        case .provisional:
-            "Provisional"
-        case .ephemeral:
-            "Ephemeral"
-        @unknown default:
-            "Unknown"
-        }
+    private func getLocationStatus() -> AnyPublisher<String, Never> {
+        reloadSettingsPublisher
+            .map { [weak self] _ in
+                guard let self else {
+                    return "Unknown"
+                }
+                return switch locationManager.authorizationStatus {
+                case .authorizedAlways:
+                    "Always"
+                case .authorizedWhenInUse:
+                    "While Using"
+                case .denied, .restricted:
+                    "Never"
+                case .notDetermined:
+                    "Ask Next Time"
+                default:
+                    "Unknown"
+                }
+            }
+            .eraseToAnyPublisher()
     }
 
-    private func getAppTrackingStatusDescription() -> String {
-        switch ATTrackingManager.trackingAuthorizationStatus {
-        case .authorized:
-            "Allowed"
-        case .notDetermined:
-            "Not Determined"
-        default:
-            "Denied"
-        }
+    private func getNotificationStatus() -> AnyPublisher<String, Never> {
+        reloadSettingsPublisher
+            .map {
+                Future<String, Never> { [weak self] promise in
+                    guard let self else {
+                        promise(.success("Unknown"))
+                        return
+                    }
+
+                    return notificationManager
+                        .getNotificationSettings { settings in
+                            let statusDescription = switch settings.authorizationStatus {
+                            case .authorized:
+                                "Enabled"
+                            case .denied:
+                                "Disabled"
+                            case .notDetermined:
+                                "Not Determined"
+                            case .provisional:
+                                "Provisional"
+                            case .ephemeral:
+                                "Ephemeral"
+                            @unknown default:
+                                "Unknown"
+                            }
+                            promise(.success(statusDescription))
+                        }
+                }
+                .eraseToAnyPublisher()
+            }
+            .switchToLatest()
+            .eraseToAnyPublisher()
     }
 
-    private func loadNetworkLoggingSettings() async -> [Setting] {
+    private func getAppTrackingStatus() -> AnyPublisher<String, Never> {
+        reloadSettingsPublisher
+            .map { _ in
+                switch ATTrackingManager.trackingAuthorizationStatus {
+                case .authorized:
+                    "Allowed"
+                case .notDetermined:
+                    "Not Determined"
+                default:
+                    "Not Allowed"
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+
+    private func loadNetworkLoggingSettings() -> [Setting] {
         let isNetworkLoggingEnabled = SettingType.networkDebugging
             .userDefaultsKey
             .map { userDefaults.bool(forKey: $0) } ?? false
@@ -180,7 +219,7 @@ extension DevelopmentSettingsViewModel {
         ]
     }
 
-    private func loadGesturesSettings() async -> [Setting] {
+    private func loadGesturesSettings() -> [Setting] {
         let isGesturesEnabled = SettingType.gestures
             .userDefaultsKey
             .map { userDefaults.bool(forKey: $0) } ?? false
