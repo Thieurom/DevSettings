@@ -11,7 +11,7 @@ To integrate DevSettings into your Xcode project, add it as a Swift Package Mana
 https://github.com/Thieurom/DevSettings.git
 
 ## Usage
-1. Ensure you call `DevSettings.configure()` in your app's `init` method or in the AppDelegate's `didFinishLaunching` method to properly configure the settings.
+1. Call `DevSettings.start()` in your app's `init` or in the AppDelegate's `didFinishLaunching`.
 
 2. Embed the `DevelopmentSettingsView` in your SwiftUI views to manage and display your settings conveniently. For example:
 ```swift
