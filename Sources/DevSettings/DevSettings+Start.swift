@@ -1,5 +1,5 @@
 //
-//  DevSettings+Configure.swift
+//  DevSettings+Start.swift
 //  DevSettings
 //
 //  Created by Doan Thieu on 3/4/25.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public func configure() {
+public func start() {
     let userDefaults = UserDefaults.standard
 
     let isNetworkDebuggingEnabled = SettingType.networkDebugging
